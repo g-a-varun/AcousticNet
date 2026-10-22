@@ -1,0 +1,3 @@
+Exam answer key - do not share!
+Q1: CRC-16  Q2: Selective Repeat  Q3: 44.4 % for 3 stations.
+Anyone in the room can hear sound. Only encryption keeps this private.

@@ -1,0 +1,73 @@
+experiment,size,detector,trials,undetected,undetected_rate
+burst,2,parity (1 bit),20000,20000,1.0
+burst,2,Internet checksum (16 bit),20000,0,0.0
+burst,2,CRC-8,20000,0,0.0
+burst,2,CRC-16,20000,0,0.0
+burst,3,parity (1 bit),20000,9901,0.49505
+burst,3,Internet checksum (16 bit),20000,0,0.0
+burst,3,CRC-8,20000,0,0.0
+burst,3,CRC-16,20000,0,0.0
+burst,4,parity (1 bit),20000,9913,0.49565
+burst,4,Internet checksum (16 bit),20000,0,0.0
+burst,4,CRC-8,20000,0,0.0
+burst,4,CRC-16,20000,0,0.0
+burst,8,parity (1 bit),20000,9973,0.49865
+burst,8,Internet checksum (16 bit),20000,0,0.0
+burst,8,CRC-8,20000,0,0.0
+burst,8,CRC-16,20000,0,0.0
+burst,9,parity (1 bit),20000,9962,0.4981
+burst,9,Internet checksum (16 bit),20000,0,0.0
+burst,9,CRC-8,20000,164,0.0082
+burst,9,CRC-16,20000,0,0.0
+burst,12,parity (1 bit),20000,9945,0.49725
+burst,12,Internet checksum (16 bit),20000,0,0.0
+burst,12,CRC-8,20000,72,0.0036
+burst,12,CRC-16,20000,0,0.0
+burst,16,parity (1 bit),20000,10047,0.50235
+burst,16,Internet checksum (16 bit),20000,0,0.0
+burst,16,CRC-8,20000,66,0.0033
+burst,16,CRC-16,20000,0,0.0
+burst,17,parity (1 bit),20000,9975,0.49875
+burst,17,Internet checksum (16 bit),20000,0,0.0
+burst,17,CRC-8,20000,78,0.0039
+burst,17,CRC-16,20000,0,0.0
+burst,20,parity (1 bit),20000,9976,0.4988
+burst,20,Internet checksum (16 bit),20000,0,0.0
+burst,20,CRC-8,20000,62,0.0031
+burst,20,CRC-16,20000,0,0.0
+burst,24,parity (1 bit),20000,10009,0.50045
+burst,24,Internet checksum (16 bit),20000,0,0.0
+burst,24,CRC-8,20000,77,0.00385
+burst,24,CRC-16,20000,1,5e-05
+burst,32,parity (1 bit),20000,10044,0.5022
+burst,32,Internet checksum (16 bit),20000,0,0.0
+burst,32,CRC-8,20000,72,0.0036
+burst,32,CRC-16,20000,0,0.0
+random,1,parity (1 bit),20000,0,0.0
+random,1,Internet checksum (16 bit),20000,0,0.0
+random,1,CRC-8,20000,0,0.0
+random,1,CRC-16,20000,0,0.0
+random,2,parity (1 bit),20000,20000,1.0
+random,2,Internet checksum (16 bit),20000,602,0.0301
+random,2,CRC-8,20000,86,0.0043
+random,2,CRC-16,20000,0,0.0
+random,3,parity (1 bit),20000,0,0.0
+random,3,Internet checksum (16 bit),20000,56,0.0028
+random,3,CRC-8,20000,0,0.0
+random,3,CRC-16,20000,0,0.0
+random,4,parity (1 bit),20000,20000,1.0
+random,4,Internet checksum (16 bit),20000,57,0.00285
+random,4,CRC-8,20000,147,0.00735
+random,4,CRC-16,20000,0,0.0
+random,5,parity (1 bit),20000,0,0.0
+random,5,Internet checksum (16 bit),20000,15,0.00075
+random,5,CRC-8,20000,0,0.0
+random,5,CRC-16,20000,0,0.0
+random,6,parity (1 bit),20000,20000,1.0
+random,6,Internet checksum (16 bit),20000,15,0.00075
+random,6,CRC-8,20000,133,0.00665
+random,6,CRC-16,20000,0,0.0
+random,8,parity (1 bit),20000,20000,1.0
+random,8,Internet checksum (16 bit),20000,3,0.00015
+random,8,CRC-8,20000,148,0.0074
+random,8,CRC-16,20000,1,5e-05

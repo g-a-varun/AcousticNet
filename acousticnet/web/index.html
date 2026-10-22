@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AcousticNet live</title>
+<style>
+  /* Light "graph paper instrument" theme: projectors wash out dark pages in a lit lab.
+     Teal always means bit 0 (1400 Hz), amber always means bit 1 (2600 Hz). */
+  :root {
+    --paper: #EEF3F2;
+    --grid: #D3DEDB;
+    --panel: #FFFFFF;
+    --ink: #18233A;
+    --muted: #5B6779;
+    --zero: #0E7C7B;
+    --one: #B86E00;
+    --bad: #B3261E;
+    --good: #2F7D4A;
+    --sent: #DCE3EF;
+    --radius-lg: 10px;
+    --radius-sm: 4px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font: 15px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+  }
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 22px;
+    padding: 14px 20px 12px; background: var(--panel); border-bottom: 2px solid var(--ink);
+  }
+  h1 { font-size: 24px; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 14px; }
+  .chips b { color: var(--ink); font-weight: 600; }
+  .pill {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+    padding: 4px 12px; border-radius: 999px; border: 1.5px solid var(--good); color: var(--good);
+    font-weight: 600; font-size: 14px; background: #fff;
+  }
+  .pill i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .pill.tx { border-color: var(--one); color: var(--one); }
+  .clock { font-size: 14px; color: var(--muted); min-width: 92px; text-align: right; }
+
+  main {
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+    gap: 16px; padding: 16px 20px 28px; max-width: 1500px; margin: 0 auto;
+  }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  section { background: var(--panel); border: 1px solid var(--grid); border-radius: var(--radius-lg); padding: 14px 16px; }
+  h2 { font-size: 16px; margin: 0 0 10px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 13.5px; margin: -6px 0 10px; }
+
+  /* the waterfall is the one bold element */
+  .waterfall { padding: 0; overflow: hidden; border: 2px solid var(--ink); }
+  .waterfall h2 { padding: 12px 16px 0; }
+  .waterfall .sub { padding: 0 16px; }
+  .wf-wrap { position: relative; height: 300px; border-top: 1px solid var(--grid); }
+  .wf-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .meters { display: flex; gap: 22px; padding: 10px 16px 12px; align-items: center; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+  .meter { display: flex; align-items: center; gap: 8px; }
+  .bar { width: 140px; height: 8px; border-radius: 4px; background: var(--paper); border: 1px solid var(--grid); overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--zero); transition: width .12s linear; }
+
+  .counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--grid); border-radius: var(--radius-sm); overflow: hidden; }
+  .counter { background: var(--panel); padding: 10px 10px 8px; }
+  .counter b { display: block; font-size: 28px; line-height: 1.1; font-weight: 650; }
+  .counter span { font-size: 13px; color: var(--muted); }
+  .counter.warn b { color: var(--bad); }
+
+  .lastframe dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; font-size: 14px; }
+  .lastframe dt { color: var(--muted); }
+  .lastframe dd { margin: 0; font-weight: 600; }
+  .ok { color: var(--good); } .badtxt { color: var(--bad); }
+
+  .chunks { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 10px; }
+  .chunk {
+    width: 30px; height: 30px; border-radius: var(--radius-sm); border: 1.5px solid var(--grid);
+    display: grid; place-items: center; font-size: 11.5px; color: var(--muted); background: #fff;
+  }
+  .chunk.sent { background: var(--sent); border-color: var(--ink); color: var(--ink); }
+  .chunk.retx { background: #F7DAD7; border-color: var(--bad); color: var(--bad); font-weight: 700; }
+  .chunk.acked { background: var(--good); border-color: var(--good); color: #fff; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+  .legend .chunk { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; margin-right: 5px; }
+  .progress { height: 10px; background: var(--paper); border: 1px solid var(--grid); border-radius: 5px; overflow: hidden; margin-top: 4px; }
+  .progress span { display: block; height: 100%; width: 0; background: var(--good); transition: width .3s; }
+  .summary { font-size: 14px; margin-top: 8px; }
+  pre.file {
+    margin: 10px 0 0; padding: 10px 12px; background: var(--paper); border-radius: var(--radius-sm);
+    white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto;
+    font: 14px/1.45 Consolas, "Cascadia Mono", Menlo, monospace;
+  }
+  .verdict { font-weight: 650; margin-top: 8px; }
+
+  .log { list-style: none; margin: 0; padding: 0; max-height: 470px; overflow: auto; font: 12.5px/1.5 Consolas, "Cascadia Mono", Menlo, monospace; }
+  .log li { padding: 2px 6px 2px 8px; border-left: 3px solid var(--grid); }
+  .log li + li { margin-top: 2px; }
+  .log .k-tx { border-color: var(--one); }
+  .log .k-rx { border-color: var(--zero); }
+  .log .k-bad { border-color: var(--bad); color: var(--bad); }
+  .log .k-good { border-color: var(--good); }
+  .log time { color: var(--muted); margin-right: 6px; }
+
+  .actions button {
+    font: inherit; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-sm);
+    border: 1.5px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer;
+  }
+  .actions button:hover { background: var(--paper); }
+  .actions button:focus-visible, .log:focus-visible { outline: 3px solid var(--zero); outline-offset: 2px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  .macchart { width: 100%; height: 280px; display: block; margin-top: 10px; }
+  .stations { display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0; font-size: 14px; }
+  .stations b { font-size: 22px; display: block; }
+  [hidden] { display: none !important; }
+
+  .story {
+    background: var(--ink); color: #fff; border-radius: var(--radius-lg); padding: 12px 16px;
+    font-size: 17px; font-weight: 600;
+  }
+  .speed { font-size: 22px; font-weight: 650; line-height: 1.2; }
+  .speed small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .speedchart { width: 100%; height: 86px; display: block; margin: 8px 0 4px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+    font-size: 13.5px; font-weight: 600; border: 1.5px solid var(--grid); color: var(--muted); background: #fff;
+  }
+  .badge.lock { border-color: var(--good); color: var(--good); }
+  .badge.bad { border-color: var(--bad); color: var(--bad); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 14px; margin-top: 8px; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  .routes td.inf { color: var(--bad); }
+  .path { font-size: 18px; font-weight: 650; margin-top: 8px; letter-spacing: 0.01em; }
+  .eve li { font: 12.5px/1.45 Consolas, "Cascadia Mono", Menlo, monospace; padding: 2px 0; border-bottom: 1px dashed var(--grid); list-style: none; }
+  .eve ol { margin: 0; padding: 0; max-height: 210px; overflow: auto; }
+  .others { margin: 8px 0 0; padding: 0; list-style: none; font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
+  .stolen { margin-top: 10px; border: 2px solid var(--bad); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .stolen h3 { margin: 0 0 6px; font-size: 15px; color: var(--bad); }
+  .stolen.safe { border-color: var(--good); }
+  .stolen.safe h3 { color: var(--good); }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 12px; }
+    .wf-wrap { height: 220px; }
+    .pill { margin-left: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AcousticNet</h1>
+  <div class="chips" id="chips"><span>Connecting to the node&hellip;</span></div>
+  <div class="pill" id="pill"><i></i><span>Listening</span></div>
+  <div class="clock" id="clock">t = 0.0 s</div>
+</header>
+
+<main>
+  <div class="col">
+    <div class="story" id="story" hidden></div>
+    <section class="waterfall">
+      <h2>What the microphone hears</h2>
+      <p class="sub">Newest sound on the right; one thin column per symbol. At base speed a tone in the teal lane is a 0 and in the amber lane a 1; the faster speeds use 4 or 16 tones spread across the band. The streak that sweeps across before each frame is the sync chirp.</p>
+      <div class="wf-wrap">
+        <canvas id="wf"></canvas>
+        <canvas id="wfo"></canvas>
+      </div>
+      <div class="meters">
+        <div class="meter">Mic level <div class="bar"><span id="lvl"></span></div> <b id="lvltxt">&ndash;</b></div>
+        <div class="meter">Channel <b id="chtxt">&ndash;</b> above silence</div>
+        <div class="actions" id="actions" hidden><button id="noiseBtn" type="button">Make a noise burst</button></div>
+      </div>
+    </section>
+
+    <section id="xfer" hidden>
+      <h2 id="xferTitle">File transfer</h2>
+      <p class="sub" id="xferSub"></p>
+      <div class="chunks" id="chunks"></div>
+      <div class="legend">
+        <span><i class="chunk"></i>waiting</span>
+        <span><i class="chunk sent"></i>sent</span>
+        <span><i class="chunk retx"></i>damaged / sent again</span>
+        <span><i class="chunk acked"></i>confirmed</span>
+      </div>
+      <div class="progress"><span id="prog"></span></div>
+      <div class="summary" id="xferSummary"></div>
+      <div id="fileBox" hidden>
+        <div class="verdict" id="verdict"></div>
+        <pre class="file" id="filePreview"></pre>
+      </div>
+    </section>
+
+    <section id="routing" hidden>
+      <h2>Routing (distance vector)</h2>
+      <p class="sub">Every laptop learns who it can hear, then shares its table. Cost = number of hops; 16 means unreachable.</p>
+      <table class="routes" id="routeTable"><thead><tr><th>Destination</th><th>Next hop</th><th>Cost (hops)</th></tr></thead><tbody></tbody></table>
+      <div class="kv"><span>Neighbours heard</span><span id="neighbors">&ndash;</span><span>Frames relayed</span><span id="relayed">0</span></div>
+      <ul class="others" id="otherTables" hidden></ul>
+      <div class="path" id="tracePath" hidden></div>
+    </section>
+
+    <section id="mac" hidden>
+      <h2>Shared-channel experiment</h2>
+      <p class="sub" id="macSub"></p>
+      <div class="stations" id="stations"></div>
+      <canvas class="macchart" id="macChart"></canvas>
+      <table id="macTable"><thead><tr><th>Protocol</th><th>p</th><th>Offered load G</th><th>Throughput S</th><th>Delivered</th><th>Garbled</th></tr></thead><tbody></tbody></table>
+    </section>
+  </div>
+
+  <div class="col">
+    <section>
+      <h2>Frames</h2>
+      <div class="counters">
+        <div class="counter"><b id="cTx">0</b><span>sent</span></div>
+        <div class="counter"><b id="cRx">0</b><span>received OK</span></div>
+        <div class="counter" id="cCrcBox"><b id="cCrc">0</b><span>failed CRC</span></div>
+        <div class="counter" id="cGarbBox"><b id="cGarb">0</b><span>garbled (collision or noise)</span></div>
+        <div class="counter" id="cRetxBox"><b id="cRetx">0</b><span>retransmissions</span></div>
+        <div class="counter" id="cToBox"><b id="cTo">0</b><span>timeouts</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Link</h2>
+      <div class="speed" id="speed">Base speed<small>2-FSK, 100 bit/s</small></div>
+      <canvas class="speedchart" id="speedChart" aria-label="speed over time"></canvas>
+      <div><span class="badge" id="secBadge">Not encrypted</span></div>
+      <div class="kv" id="linkKv"><span>Last SNR</span><span id="lastSnr">&ndash;</span><span>Speed changes</span><span id="rateChanges">0</span></div>
+    </section>
+
+    <section class="eve" id="eve" hidden>
+      <h2>What Eve overheard</h2>
+      <p class="sub">Sound is broadcast: this laptop hears every frame, even ones addressed to others.</p>
+      <ol id="eveLog"></ol>
+      <div id="eveBox" hidden></div>
+    </section>
+
+    <section class="lastframe">
+      <h2>Last frame heard</h2>
+      <dl id="lastFrame"><dt>Waiting</dt><dd>&ndash;</dd></dl>
+    </section>
+
+    <section>
+      <h2>Event log</h2>
+      <ol class="log" id="log" tabindex="0" aria-live="polite"></ol>
+    </section>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const S = { f0: 1400, f1: 2600, minHz: 700, maxHz: 3500, tx: 0, rx: 0, crc: 0, garb: 0, retx: 0, to: 0,
+              chunks: [], role: "", macRows: [], macN: 3, ann: [] };
+
+  /* ---------------- waterfall: one 1-px column per bit ---------------- */
+  const wf = $("wf"), wfo = $("wfo");
+  const ctx = wf.getContext("2d"), octx = wfo.getContext("2d");
+  const COL = 1;
+  function fit() {
+    // keep what is already drawn when the window (or projector) changes size
+    const r = wf.parentElement.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    const oldW = wf.width, oldH = wf.height, keep = document.createElement("canvas");
+    if (oldW > 0 && oldH > 0) { keep.width = oldW; keep.height = oldH; keep.getContext("2d").drawImage(wf, 0, 0); }
+    if (r.width < 2 || r.height < 2) return;
+    for (const c of [wf, wfo]) { c.width = Math.round(r.width * d); c.height = Math.round(r.height * d); }
+    ctx.fillStyle = "#EEF3F2"; ctx.fillRect(0, 0, wf.width, wf.height);
+    if (oldW > 1 && oldH > 1 && keep.width > 1) ctx.drawImage(keep, 0, 0, oldW, oldH, wf.width - oldW, 0, oldW, wf.height);
+    for (const a of S.ann) a.x += wf.width - oldW;
+    drawOverlay();
+  }
+  // paper -> sea-glass -> ink ramp
+  const stops = [[238, 243, 242], [143, 184, 182], [52, 96, 112], [24, 35, 58]];
+  const LUT = [];
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255 * (stops.length - 1), k = Math.min(stops.length - 2, Math.floor(t)), u = t - k;
+    LUT.push(stops[k].map((a, j) => Math.round(a + (stops[k + 1][j] - a) * u)));
+  }
+  function addColumns(cols) {
+    const W = wf.width, H = wf.height, d = window.devicePixelRatio || 1;
+    const cw = Math.max(1, Math.round(COL * d)), k = cols.length, shift = k * cw;
+    if (!k) return;
+    ctx.drawImage(wf, shift, 0, W - shift, H, 0, 0, W - shift, H);
+    const img = ctx.createImageData(shift, H), n = cols[0].length;
+    for (let y = 0; y < H; y++) {
+      const bin = Math.min(n - 1, Math.floor((1 - y / H) * n));
+      for (let c = 0; c < k; c++) {
+        const col = LUT[cols[c][bin]];
+        for (let x = 0; x < cw; x++) {
+          const o = (y * shift + c * cw + x) * 4;
+          img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(img, W - shift, 0);
+    for (const a of S.ann) a.x -= shift;
+    S.ann = S.ann.filter(a => a.x > 0);
+    drawOverlay();
+  }
+  function yOf(hz) { return wfo.height * (1 - (hz - S.minHz) / (S.maxHz - S.minHz)); }
+  function drawOverlay() {
+    const d = window.devicePixelRatio || 1, W = wfo.width;
+    octx.clearRect(0, 0, W, wfo.height);
+    octx.font = `600 ${12.5 * d}px system-ui, sans-serif`;
+    // lane labels live in the left margin only, so they never cover the tones
+    for (const [hz, col, label] of [[S.f0, "#0E7C7B", "0"], [S.f1, "#B86E00", "1"]]) {
+      const y = yOf(hz), txt = `bit ${label}, ${hz} Hz`, tw = octx.measureText(txt).width;
+      octx.fillStyle = col; octx.fillRect(0, y - 13 * d, 4 * d, 26 * d);
+      octx.fillStyle = "rgba(255,255,255,.9)"; octx.fillRect(4 * d, y - 9 * d, tw + 10 * d, 18 * d);
+      octx.fillStyle = col; octx.fillText(txt, 9 * d, y + 4.5 * d);
+    }
+    for (const a of S.ann) {
+      const x = a.x - a.w, y = 6 * d + a.row * 21 * d;     // scrolls off the left edge (no pile-up)
+      octx.fillStyle = a.color; octx.fillRect(x, y, a.w - 2 * d, 18 * d);
+      octx.fillStyle = "#fff"; octx.fillText(a.text, x + 5 * d, y + 13 * d);
+    }
+  }
+  function annotate(text, color) {
+    const d = window.devicePixelRatio || 1, W = wfo.width;
+    octx.font = `600 ${12.5 * d}px system-ui, sans-serif`;
+    const w = octx.measureText(text).width + 14 * d;
+    // pick the first row whose newest label has already scrolled out of the way
+    let row = -1;
+    for (let r = 0; r < 4 && row < 0; r++) {
+      const inRow = S.ann.filter(a => a.row === r);
+      if (!inRow.length || Math.max(...inRow.map(a => a.x)) < W - w - 4 * d) row = r;
+    }
+    if (row < 0) row = S.ann.length ? S.ann.reduce((m, a) => (a.x < m.x ? a : m)).row : 0;
+    S.ann = S.ann.filter(a => !(a.row === row && a.x > W - w - 4 * d));
+    S.ann.push({ text, color, x: W - 2 * d, row, w });
+    drawOverlay();
+  }
+  window.addEventListener("resize", () => { fit(); drawSpeed(); });
+
+  /* ---------------- helpers ---------------- */
+  const set = (id, v) => { $(id).textContent = v; };
+  function log(text, cls, t) {
+    const li = document.createElement("li");
+    li.className = cls || "";
+    const tm = document.createElement("time");
+    tm.textContent = typeof t === "number" ? t.toFixed(1) + "s" : "";
+    li.append(tm, document.createTextNode(text));
+    const ol = $("log"); ol.prepend(li);
+    while (ol.children.length > 250) ol.lastChild.remove();
+  }
+  function newTransfer() {        // a new file: clear the previous file's verdict and summary
+    $("fileBox").hidden = true; set("xferSummary", ""); set("verdict", ""); set("filePreview", "");
+    $("prog").style.width = "0%";
+  }
+  function eveCard(safe, title, body) {
+    $("eve").hidden = false;
+    const box = $("eveBox"); box.hidden = false;
+    const card = document.createElement("div");
+    card.className = "stolen" + (safe ? " safe" : "");
+    card.innerHTML = `<h3></h3><pre class="file"></pre>`;
+    card.querySelector("h3").textContent = title;
+    card.querySelector("pre").textContent = body;
+    box.prepend(card);
+    while (box.children.length > 3) box.lastChild.remove();
+  }
+  function counters() {
+    set("cTx", S.tx); set("cRx", S.rx); set("cCrc", S.crc); set("cGarb", S.garb); set("cRetx", S.retx); set("cTo", S.to);
+    $("cCrcBox").classList.toggle("warn", S.crc > 0); $("cRetxBox").classList.toggle("warn", S.retx > 0);
+    $("cToBox").classList.toggle("warn", S.to > 0); $("cGarbBox").classList.toggle("warn", S.garb > 0);
+  }
+  const MODE = { sr: "Selective Repeat", gbn: "Go-Back-N", sw: "Stop-and-Wait" };
+  const MCS = [
+    ["Robust", "2-FSK + Hamming FEC, 57 bit/s"], ["Base speed", "2-FSK, 100 bit/s"],
+    ["Fast", "4-FSK, 200 bit/s"], ["Faster", "16-FSK, 400 bit/s"], ["Fastest", "16-FSK at 200 baud, 800 bit/s"]];
+  const MCS_SHORT = ["2-FSK+FEC", "2-FSK", "4-FSK", "16-FSK", "16-FSK x2"];
+  S.speedHist = []; S.rateChanges = 0;
+  function showSpeed(m, why) {
+    if (m === undefined || m === null || !MCS[m]) return;
+    const last = S.speedHist.length ? S.speedHist[S.speedHist.length - 1] : null;
+    if (last !== m) S.speedHist.push(m);
+    if (S.speedHist.length > 80) S.speedHist.shift();
+    $("speed").innerHTML = `${MCS[m][0]}<small>MCS ${m}: ${MCS[m][1]}${why ? " (" + why + ")" : ""}</small>`;
+    drawSpeed();
+  }
+  function drawSpeed() {
+    const c = $("speedChart"), d = window.devicePixelRatio || 1, r = c.getBoundingClientRect();
+    if (r.width < 2) return;
+    c.width = r.width * d; c.height = r.height * d;
+    const g = c.getContext("2d"), W = c.width, H = c.height, h = S.speedHist;
+    g.clearRect(0, 0, W, H);
+    const L = 74 * d;                                   // left margin for the speed names
+    const yOfM = m => H - 6 * d - (H - 12 * d) * m / 4;
+    g.font = `${10.5 * d}px system-ui, sans-serif`; g.textBaseline = "middle";
+    for (let k = 0; k <= 4; k++) {
+      const y = yOfM(k);
+      g.strokeStyle = "#D3DEDB"; g.lineWidth = d; g.beginPath(); g.moveTo(L, y); g.lineTo(W, y); g.stroke();
+      g.fillStyle = "#5B6B68"; g.fillText(`${k} ${MCS_SHORT[k]}`, 0, y);
+    }
+    if (!h.length) return;
+    const step = (W - L) / Math.max(8, h.length);
+    g.strokeStyle = "#18233A"; g.lineWidth = 2.5 * d; g.beginPath();
+    h.forEach((m, i) => { const y = yOfM(m); if (i) g.lineTo(L + i * step, y); else g.moveTo(L, y); g.lineTo(L + (i + 1) * step, y); });
+    g.stroke();
+  }
+  function eveLine(text, cls) {
+    $("eve").hidden = false;
+    const li = document.createElement("li"); li.textContent = text; if (cls) li.style.color = cls;
+    const ol = $("eveLog"); ol.prepend(li); while (ol.children.length > 60) ol.lastChild.remove();
+  }
+  function makeChunks(n) {
+    S.chunks = Array(n).fill("");
+    const box = $("chunks"); box.textContent = "";
+    for (let i = 0; i < n; i++) {
+      const c = document.createElement("div"); c.className = "chunk"; c.textContent = i === 0 ? "info" : i;
+      c.title = i === 0 ? "file name, size and hash" : `chunk ${i}`;
+      if (i === 0) c.style.fontSize = "9.5px";
+      box.append(c);
+    }
+    $("xfer").hidden = false;
+  }
+  function setChunk(i, state) {
+    const el = $("chunks").children[i]; if (!el) return;
+    if (S.chunks[i] === "acked") return;
+    S.chunks[i] = state; el.className = "chunk " + state;
+    const done = S.chunks.filter(s => s === "acked").length;
+    $("prog").style.width = (100 * done / S.chunks.length) + "%";
+  }
+
+  /* ---------------- events ---------------- */
+  function handle(ev) {
+    const k = ev.kind, t = ev.t;
+    if (typeof t === "number") set("clock", `t = ${t.toFixed(1)} s`);
+    switch (k) {
+      case "hello": {
+        S.role = ev.role || ""; S.f0 = ev.f0 || S.f0; S.f1 = ev.f1 || S.f1; S.addr = ev.addr;
+        S.minHz = ev.spec_min_hz || S.minHz; S.maxHz = ev.spec_max_hz || S.maxHz;
+        const chips = [];
+        if (ev.role) chips.push(`<b>${ev.role}</b>`);
+        if (ev.addr !== undefined) chips.push(`node <b>${ev.addr}</b>`);
+        if (ev.baud) chips.push(`<b>${ev.baud}</b> baud`);
+        if (ev.fec !== undefined) chips.push(ev.fec ? "Hamming FEC <b>on</b>" : "FEC <b>off</b>");
+        if (ev.rt_latency_ms !== undefined) chips.push(`audio latency <b>${ev.rt_latency_ms} ms</b>`);
+        $("chips").innerHTML = chips.map(c => `<span>${c}</span>`).join("");
+        $("actions").hidden = !(ev.actions || []).includes("noise");
+        drawOverlay(); break;
+      }
+      case "spectrum": {
+        addColumns(ev.cols || []);
+        const lv = Math.max(0, Math.min(1, (ev.rms_db + 70) / 70));
+        $("lvl").style.width = (lv * 100) + "%"; set("lvltxt", `${ev.rms_db.toFixed(0)} dBFS`);
+        const p = $("pill"); p.classList.toggle("tx", ev.tx); p.lastElementChild.textContent = ev.tx ? "Transmitting" : "Listening";
+        break;
+      }
+      case "status":
+        if (ev.channel_db !== null && ev.channel_db !== undefined) set("chtxt", `${Math.max(0, Math.round(ev.channel_db))} dB`);
+        break;
+      case "tx":
+        S.tx++; counters();
+        annotate(`TX ${ev.type} ${ev.seq}` + (ev.type === "DATA" && ev.mcs > 1 ? ` ${MCS_SHORT[ev.mcs]}` : ""), "#B86E00");
+        if (ev.type === "DATA") showSpeed(ev.mcs);
+        log(`sent ${ev.type} #${ev.seq} to ${ev.dst}, ${ev.len} bytes, ${ev.dur.toFixed(2)} s on air${ev.retx ? " (again)" : ""}${ev.status_poll ? " (status poll)" : ""}`, "k-tx", t);
+        break;
+      case "rx": {
+        if (ev.crc_ok) S.rx++; else S.crc++;
+        counters();
+        // receiver side: a damaged DATA frame marks its chunk red until the resend arrives
+        if (!ev.crc_ok && ev.type === "DATA" && ev.seq < S.chunks.length) setChunk(ev.seq, "retx");
+        annotate(`RX ${ev.type} ${ev.seq} ${ev.crc_ok ? "OK" : "CRC FAIL"}` + (ev.type === "DATA" && ev.mcs > 1 ? ` ${MCS_SHORT[ev.mcs]}` : ""), ev.crc_ok ? "#0E7C7B" : "#B3261E");
+        set("lastSnr", `${ev.snr.toFixed(1)} dB`);
+        if (ev.type === "DATA" && ev.crc_ok) showSpeed(ev.mcs);
+        $("lastFrame").innerHTML =
+          `<dt>Frame</dt><dd>${ev.type} #${ev.seq} from node ${ev.src}</dd>` +
+          `<dt>CRC-16</dt><dd class="${ev.crc_ok ? "ok" : "badtxt"}">${ev.crc_ok ? "passed" : "failed, frame dropped"}</dd>` +
+          `<dt>Signal to noise</dt><dd>${ev.snr.toFixed(1)} dB</dd>` +
+          `<dt>Tone clarity</dt><dd>${Math.round(ev.quality * 100)} %</dd>` +
+          `<dt>Payload speed</dt><dd>${MCS[ev.mcs] ? MCS[ev.mcs][1] : "-"}</dd>` +
+          `<dt>Bits fixed by FEC</dt><dd>${ev.fec_fixed || 0}</dd>`;
+        log(`heard ${ev.type} #${ev.seq} from ${ev.src}: ${ev.crc_ok ? "CRC OK" : "CRC FAILED"}, SNR ${ev.snr.toFixed(1)} dB`, ev.crc_ok ? "k-rx" : "k-bad", t);
+        break;
+      }
+      case "rx_garbled":
+        S.garb++; counters(); annotate("garbled", "#B3261E");
+        log(`a chirp was heard but the header was unreadable (${ev.reason})`, "k-bad", t); break;
+      case "timeout":
+        S.to++; counters(); log(`no ACK in time, asking the receiver what it has (try ${ev.tries})`, "k-bad", t); break;
+      case "transfer_start":
+        makeChunks(ev.chunks); newTransfer();
+        set("xferTitle", `Sending ${ev.name}`);
+        showSpeed(ev.mcs, ev.rate === "auto" ? "chosen by the link probe" : "fixed");
+        $("secBadge").className = "badge" + (ev.encrypted ? " lock" : "");
+        set("secBadge", ev.encrypted ? `Encrypted + authenticated, session ${ev.session}` : "Not encrypted: anyone nearby can read it");
+        set("xferSub", `${ev.size} bytes in ${ev.chunks - 1} chunks of ${ev.chunk} bytes, ${MODE[ev.mode] || ev.mode}, window ${ev.mode === "sw" ? 1 : ev.window}`);
+        log(`transfer of ${ev.name} started (${MODE[ev.mode] || ev.mode})`, "k-good", t); break;
+      case "chunk":
+        if (ev.state === "retx") S.retx++;
+        counters(); setChunk(ev.idx, ev.state); break;
+      case "ack":
+        log(`ACK: receiver has everything before #${ev.rbase}${ev.acked ? `, ${ev.acked} newly confirmed` : ", nothing new"}`, "k-rx", t); break;
+      case "transfer_done":
+        set("xferSummary", `Done in ${ev.elapsed_s.toFixed(1)} s. ${ev.data_frames} data frames sent for ${S.chunks.length} chunks (${ev.retransmissions} sent again). File goodput ${ev.file_goodput_bps} bit/s.`);
+        $("prog").style.width = "100%";
+        log(`transfer finished in ${ev.elapsed_s.toFixed(1)} s`, "k-good", t); break;
+      case "transfer_failed":
+        set("xferSummary", `Transfer stopped: ${ev.reason}`); log(`transfer failed: ${ev.reason}`, "k-bad", t); break;
+      case "transfer_meta":
+        if (S.chunks.length !== ev.chunks) makeChunks(ev.chunks);
+        $("secBadge").className = "badge" + (ev.encrypted ? " lock" : "");
+        set("secBadge", ev.encrypted ? "Encrypted + authenticated (key OK)" : "Not encrypted");
+        newTransfer();
+        set("xferTitle", `Receiving ${ev.name}`); set("xferSub", `${ev.size} bytes in ${ev.chunks - 1} chunks`);
+        setChunk(0, "acked"); log(`incoming file ${ev.name} (${ev.size} bytes)`, "k-good", t); break;
+      case "chunk_got":
+        if (S.chunks.length) setChunk(ev.idx, "acked");
+        if (!ev.in_order) log(`kept DATA #${ev.idx} although an earlier chunk is missing (Selective Repeat buffers it)`, "k-rx", t);
+        break;
+      case "gbn_discard":
+        log(`threw away DATA #${ev.idx}: still waiting for #${ev.waiting_for} (Go-Back-N accepts only in order)`, "k-bad", t);
+        break;
+      case "chunk_rx":
+        if (!S.chunks.length && ev.of) makeChunks(ev.of + 1);
+        setChunk(ev.idx, "acked"); break;
+      case "file_done":
+        $("fileBox").hidden = false;
+        $("verdict").className = "verdict " + (ev.ok ? "ok" : "badtxt");
+        set("verdict", ev.ok ? `SHA-256 matches: all ${ev.size} bytes of ${ev.name} arrived exactly as sent. Saved to ${ev.path}` : `Hash mismatch: ${ev.name} is corrupted`);
+        set("filePreview", ev.preview || "");
+        $("prog").style.width = "100%";
+        log(`file saved: ${ev.path} (${ev.ok ? "hash OK" : "HASH MISMATCH"})`, ev.ok ? "k-good" : "k-bad", t); break;
+      case "story":
+        $("story").hidden = false; set("story", ev.text); log(`--- ${ev.text} ---`, "k-good", t); break;
+      case "rate":
+        S.rateChanges++; set("rateChanges", S.rateChanges); showSpeed(ev.new, ev.reason);
+        log(`speed ${ev.new > ev.old ? "UP" : "DOWN"} to ${ev.name}: ${ev.reason}${ev.snr ? `, SNR ${ev.snr} dB` : ""}`, ev.new > ev.old ? "k-good" : "k-bad", t); break;
+      case "probe":
+        log(ev.snr === null ? "link probe: no answer" : `link probe: SNR ${ev.snr_there} dB there, ${ev.snr_back} dB back`, "k-rx", t); break;
+      case "security_reject":
+        $("secBadge").className = "badge bad"; set("secBadge", "Refused: " + ev.reason);
+        log(`REFUSED: ${ev.reason}`, "k-bad", t); break;
+      case "alert":
+        $("secBadge").className = "badge bad"; set("secBadge", "Receiver refused: " + ev.reason);
+        log(`receiver refused: ${ev.reason}`, "k-bad", t); break;
+      case "sniff_capture":
+        eveLine(`recording ${ev.src}→${ev.dst} to ${ev.path}`, "#5B6779"); break;
+      case "sniff_frame":
+        eveLine(`${ev.type} #${ev.seq}  ${ev.src}→${ev.dst}  "${ev.peek}"`); break;
+      case "sniff_file":
+        eveCard(false, ev.decrypted ? `Eve decrypted ${ev.name} (she has the key)` : `Eve STOLE ${ev.name} (${ev.size} bytes)`,
+                ev.preview || "");
+        log(`EVE STOLE ${ev.name}: saved to ${ev.path}`, "k-bad", t); break;
+      case "sniff_encrypted":
+        eveCard(true, `Encrypted transfer ${ev.src}→${ev.dst}: Eve sees only random bytes`, ev.peek + " ...");
+        eveLine(`encrypted session ${ev.session}: nothing readable`, "#2F7D4A"); break;
+      case "route_table": {
+        $("routing").hidden = false;
+        S.tables = S.tables || {};
+        S.tables[ev.me] = ev;
+        if (ev.me === undefined || S.addr === undefined || ev.me === S.addr) {
+          const tb = document.querySelector("#routeTable tbody"); tb.textContent = "";
+          for (const r of ev.table) {
+            const tr = document.createElement("tr");
+            const inf = r.cost >= 16;
+            tr.innerHTML = `<td>node ${r.dest}</td><td>${r.cost === 0 ? "(this laptop)" : "node " + r.next_hop}</td><td class="${inf ? "inf" : ""}">${inf ? "16 (unreachable)" : r.cost}</td>`;
+            tb.append(tr);
+          }
+          set("neighbors", (ev.neighbors || []).length ? ev.neighbors.map(n => "node " + n).join(", ") : "none yet");
+        }
+        // in the simulated room every laptop reports here: list the OTHER laptops' tables too
+        const others = Object.values(S.tables).filter(x => x.me !== undefined && x.me !== S.addr);
+        const ot = $("otherTables"); ot.hidden = !others.length; ot.textContent = "";
+        for (const x of others.sort((a, b) => a.me - b.me)) {
+          const li = document.createElement("li");
+          li.textContent = `node ${x.me}: ` + x.table.filter(r => r.cost > 0).map(r =>
+            r.cost >= 16 ? `${r.dest} unreachable` : `${r.dest} via ${r.next_hop} (${r.cost} hop${r.cost > 1 ? "s" : ""})`).join(", ");
+          ot.append(li);
+        }
+        log(`routing table${ev.me !== undefined && ev.me !== S.addr ? " of node " + ev.me : ""} changed: ${ev.reason}`, "k-rx", t); break;
+      }
+      case "route_advert": log(`${ev.me !== undefined && ev.me !== S.addr ? "node " + ev.me + " " : ""}advertised its routing table (${ev.entries} routes)`, "k-tx", t); break;
+      case "forward":
+        $("routing").hidden = false;
+        if (ev.me === undefined || ev.me === S.addr) { S.relayed = (S.relayed || 0) + 1; set("relayed", S.relayed); }
+        annotate(`FWD ${ev.type} ${ev.seq} → ${ev.next_hop}`, "#18233A");
+        log(`relayed ${ev.type} #${ev.seq} (${ev.src}→${ev.dst}) to next hop ${ev.next_hop}`, "k-tx", t); break;
+      case "forward_queued": break;
+      case "ttl_expired": log(`TTL ran out for a frame from ${ev.src}: sent "time exceeded" back`, "k-bad", t); break;
+      case "no_route": log(`no route to node ${ev.dst}`, "k-bad", t); break;
+      case "traceroute": {
+        $("routing").hidden = false; S.trace = S.trace || [];
+        if (ev.ttl === 1) S.trace = [];
+        S.trace.push(ev.hop === null ? "*" : "node " + ev.hop);
+        const from = ev.src === undefined || ev.src === S.addr ? "this laptop" : "node " + ev.src;
+        const p = $("tracePath"); p.hidden = false; p.textContent = `traceroute: ${from} → ` + S.trace.join(" → ");
+        log(ev.hop === null ? `traceroute hop ${ev.ttl}: no answer` : `traceroute hop ${ev.ttl}: node ${ev.hop}, ${ev.rtt} s`, "k-good", t); break;
+      }
+      case "ping":
+        log(ev.rtt === null ? `ping #${ev.seq}: no reply` : `ping #${ev.seq}: ${ev.rtt.toFixed(2)} s round trip (${ev.airtime.toFixed(2)} s on air + ${ev.latency_and_processing.toFixed(2)} s audio latency and processing)`, ev.rtt === null ? "k-bad" : "k-good", t); break;
+      case "message":
+        log(`message from ${ev.src}: ${ev.text}`, "k-good", t); break;
+      case "mac_start":
+        $("mac").hidden = false; S.macN = (ev.stations || []).length || S.macN; S.macLive = {};
+        set("macSub", `Run ${ev.run}: ${ev.protocol.toUpperCase() === "CSMA" ? "CSMA" : ev.protocol === "slotted" ? "Slotted ALOHA" : "Pure ALOHA"}, p = ${ev.p}, ${ev.duration} s, ${S.macN} stations`);
+        drawStations(); log(`experiment run ${ev.run} started: ${ev.protocol}, p = ${ev.p}`, "k-good", t); break;
+      case "mac_success":
+        S.macLive = S.macLive || {}; S.macLive[ev.src] = (S.macLive[ev.src] || 0) + 1; drawStations(); break;
+      case "mac_result": {
+        S.macRows.push(ev);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${ev.protocol}</td><td>${ev.p}</td><td>${(ev.protocol === "csma" ? ev.G_attempts : ev.G_tx).toFixed(2)}</td><td>${ev.S.toFixed(3)}</td><td>${ev.successes}/${ev.transmissions}</td><td>${ev.garbled}</td>`;
+        document.querySelector("#macTable tbody").prepend(tr);
+        drawMacChart(); log(`run ${ev.run} result: S = ${ev.S}, G = ${ev.G_tx}`, "k-good", t); break;
+      }
+      case "mac_ready":
+        $("mac").hidden = false; set("macSub", `Station ${ev.addr} is waiting for the sink to start a run.`); break;
+      case "mac_run":
+        $("mac").hidden = false; set("macSub", `Taking part in run ${ev.run}: ${ev.protocol}, p = ${ev.p}`); log(`run ${ev.run}: ${ev.protocol}, p = ${ev.p}`, "k-good", t); break;
+      case "mac_run_done":
+        log(`run ${ev.run_id} done: ${ev.transmissions} frames transmitted${ev.busy_defers ? `, ${ev.busy_defers} times the channel was busy` : ""}`, "k-good", t); break;
+      case "calibration":
+        log(`calibrated: audio round trip ${ev.rt_latency_ms} ms, SNR ${ev.snr_db} dB`, "k-good", t); break;
+      case "action":
+        log(`action: ${ev.name}`, "k-bad", t); break;
+      case "error":
+        log(`error in ${ev.where}: ${ev.error}`, "k-bad", t); break;
+      default:
+        if (!["arq_start", "arq_done", "chunk_rx", "mac_late_start", "ber_frame", "transfer_failed_unused"].includes(k)) log(`${k}`, "", t);
+    }
+  }
+
+  function drawStations() {
+    const box = $("stations"); box.textContent = "";
+    for (const [k, v] of Object.entries(S.macLive || {})) {
+      const d = document.createElement("div"); d.innerHTML = `<b>${v}</b>frames from station ${k}`; box.append(d);
+    }
+  }
+
+  function drawMacChart() {
+    const c = $("macChart"), d = window.devicePixelRatio || 1, r = c.getBoundingClientRect();
+    c.width = r.width * d; c.height = r.height * d;
+    const g = c.getContext("2d"), W = c.width, H = c.height, L = 46 * d, B = 34 * d, T = 10 * d, R = 12 * d;
+    const gmax = 3, smax = 0.7, X = (v) => L + (W - L - R) * v / gmax, Y = (v) => H - B - (H - B - T) * v / smax;
+    g.font = `${12 * d}px system-ui, sans-serif`; g.fillStyle = "#5B6779"; g.strokeStyle = "#D3DEDB"; g.lineWidth = d;
+    for (let s = 0; s <= smax + 1e-9; s += 0.1) { g.beginPath(); g.moveTo(L, Y(s)); g.lineTo(W - R, Y(s)); g.stroke(); g.fillText(s.toFixed(1), 8 * d, Y(s) + 4 * d); }
+    for (let x = 0; x <= gmax; x += 0.5) { g.fillText(x.toFixed(1), X(x) - 8 * d, H - 14 * d); }
+    g.fillText("offered load G (frames per frame time)", L + 4 * d, H - 2 * d);
+    // protocol colours: validated categorical slots 1-3 (blue, orange, aqua), never the bit colours
+    const N = S.macN, curves = [
+      ["Pure ALOHA theory, N = " + N, "#2a78d6", (G) => G <= N ? G * Math.pow(1 - G / N, 2 * (N - 1)) : 0],
+      ["Slotted ALOHA theory, N = " + N, "#eb6834", (G) => G <= N ? G * Math.pow(1 - G / N, N - 1) : 0],
+    ];
+    g.setLineDash([5 * d, 4 * d]);
+    curves.forEach(([name, col, fn], i) => {
+      g.strokeStyle = col; g.lineWidth = 1.5 * d; g.beginPath();
+      for (let k = 0; k <= 200; k++) { const G = gmax * k / 200; k ? g.lineTo(X(G), Y(fn(G))) : g.moveTo(X(G), Y(fn(G))); }
+      g.stroke(); g.fillStyle = col; g.fillRect(W - R - 214 * d, T + 9 * d + i * 16 * d, 16 * d, 2 * d); g.fillStyle = "#18233A"; g.fillText(name, W - R - 192 * d, T + 14 * d + i * 16 * d);
+    });
+    g.setLineDash([]);
+    const colors = { aloha: "#2a78d6", slotted: "#eb6834", csma: "#1baf7a" };
+    for (const row of S.macRows) {
+      const sl = row.protocol === "slotted" && row.S_slot !== undefined;
+      const G = row.protocol === "csma" ? row.G_attempts : sl ? row.G_slot : row.G_tx, Sv = sl ? row.S_slot : row.S;
+      g.fillStyle = "#fff"; g.beginPath(); g.arc(X(Math.min(G, gmax)), Y(Sv), 7 * d, 0, 7); g.fill();
+      g.fillStyle = colors[row.protocol] || "#18233A"; g.beginPath(); g.arc(X(Math.min(G, gmax)), Y(Sv), 5 * d, 0, 7); g.fill();
+    }
+    [["measured: Pure ALOHA", "aloha"], ["measured: Slotted ALOHA (per slot)", "slotted"], ["measured: CSMA", "csma"]].forEach(([txt, k], i) => {
+      g.fillStyle = colors[k]; g.beginPath(); g.arc(W - R - 206 * d, T + 42 * d + i * 16 * d, 4.5 * d, 0, 7); g.fill();
+      g.fillStyle = "#18233A"; g.fillText(txt, W - R - 192 * d, T + 46 * d + i * 16 * d);
+    });
+  }
+
+  $("noiseBtn").addEventListener("click", () => fetch("/action/noise", { method: "POST" }));
+
+  fit();
+  fetch("/history").then(r => r.json()).then(list => { list.forEach(handle); }).catch(() => {}).finally(() => {
+    const es = new EventSource("/events");
+    es.onmessage = (m) => { try { handle(JSON.parse(m.data)); } catch (e) { console.error(e); } };
+    es.onerror = () => { set("chips", "Lost connection to the node. Is the program still running?"); };
+  });
+})();
+</script>
+</body>
+</html>
