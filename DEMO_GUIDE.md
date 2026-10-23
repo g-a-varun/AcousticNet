@@ -147,7 +147,7 @@ Acts 1–4 take about 8 minutes and each later act about 3–4. For a 10-minute 
 |  | TUF | Ctrl+C, then `py -m acousticnet send demo_files/exam_answers.txt` | The Mac shows "Eve STOLE exam_answers.txt" with the full text |
 |  | ROG | Ctrl+C, then `py -m acousticnet recv --key vit-cn-lab` |  |
 |  | TUF | Ctrl+C, then `py -m acousticnet send demo_files/exam_answers.txt --key vit-cn-lab` | ROG: "Encrypted + authenticated"; Mac: only random bytes, plus a `SNIFF_CAPTURE` line with the recording's path |
-|  | Mac | Wait 20 s after the TUF prints "Done". Ctrl+C, then `python -m acousticnet replay sniffed/capture_1_to_2_` and press Tab to finish the name | ROG: "replay attack refused" |
+|  | Mac | Wait 20 s after the TUF prints "Done". Ctrl+C, then `ls -t sniffed`: the first `capture_1_to_2_….json` listed is the encrypted transfer. Then `python -m acousticnet replay sniffed/<that file name>` | ROG: "replay attack refused" |
 |  | Mac | Ctrl+C, then `python -m acousticnet send demo_files/forged_message.txt --addr 250 --key password123` | ROG: "authentication failed" |
 | 7. Relay | All three | Line them up: TUF — Mac — ROG |  |
 |  | Mac | Ctrl+C, then `python -m acousticnet relay` |  |
