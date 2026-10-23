@@ -88,6 +88,7 @@ def send_file(link, peer: int, data: bytes, name: str, mode: str = "sr", window:
         controller = RateController(link.modem, start=link.default_mcs, bus=bus, clock=link.now)
         if snr is not None:
             controller.cur = controller.best_for_snr(snr)       # starting speed from the probe
+            controller.history = [controller.cur]
         start = controller.current
         chunk = chunk or CHUNK_FOR_MCS[start]
     elif rate is not None:

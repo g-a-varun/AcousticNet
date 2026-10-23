@@ -428,8 +428,12 @@ def fig_ber_measured(plt, out):
         a1.plot([r["distance_m"] for r in rr], [max(r["ber"], 1e-5) for r in rr], color=col, marker="o", label=lbl)
         a2.plot([r["distance_m"] for r in rr], [100 * r["frame_success_rate"] for r in rr], color=col, marker="o", label=lbl)
     a1.set_yscale("log")
+    if any(r["ber"] == 0 for r in rows):          # log axis can't show 0: say so instead of hiding it
+        a1.axhline(1e-5, color=GREY, linestyle=":", linewidth=1)
+        a1.text(0.01, 1.15e-5, "no bit errors at all (drawn at 1e-5)", transform=a1.get_yaxis_transform(),
+                color=INK2, fontsize=8)
     a1.set_xlabel("distance between laptops (m)")
-    a1.set_ylabel("bit error rate")
+    a1.set_ylabel("bit error rate (frames that were heard)")
     a1.set_title("Measured: bit error rate vs distance")
     a2.set_xlabel("distance between laptops (m)")
     a2.set_ylabel("frames received correctly (%)")

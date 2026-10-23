@@ -68,9 +68,11 @@ def basic(args, make_bus, make_dash):
     b = Node(2, AudioBackend(air.add_laptop("receiver", (args.distance, 0), 0.07, 0.07)), phy, fec=args.fec,
              bus=bus, rt_latency_s=0.14).start()
     dash = make_dash(bus, b, "Simulated room: node 1 sends to node 2", {"noise": lambda: air.make_noise(1.0, 0.8)})
-    box = {}
-    th = threading.Thread(target=lambda: box.update(r=receive_file(b, args.out, bus=bus, linger=4, key=args.key)),
-                          daemon=True)
+    box, done = {}, threading.Event()
+    # The receiver lingers (like TCP TIME_WAIT) in case a clap destroys its LAST ACK and the sender has to
+    # ask again; once the sender has that ACK the demo tells the receiver to stop, so it still ends promptly.
+    th = threading.Thread(target=lambda: box.update(r=receive_file(b, args.out, bus=bus, key=args.key,
+                                                                   stop_event=done)), daemon=True)
     th.start()
     if args.noise_at:
         def noise():
@@ -83,6 +85,7 @@ def basic(args, make_bus, make_dash):
             time.sleep(args.wait_dashboard)
         b.measure_noise_floor(0.5)
         send_file(a, 2, data, name, args.arq, args.window, args.chunk, bus, rate=_rate(args), key=args.key)
+        done.set()
         th.join(60)
         _keep_open(args, dash)
     finally:
@@ -109,9 +112,10 @@ def speed(args, make_bus, make_dash):
              rt_latency_s=0.14).start()
     dash = make_dash(bus, b, "Simulated room: adaptive speed", {"noise": lambda: air.make_noise(1.0, 0.8)})
     text = (b"Adaptive speed demo: watch the speed panel and the tone lanes. " * 2 + b"\n") * 24
-    data = getattr(args, "file", None) and open(args.file, "rb").read() or text
-    box = {}
-    th = threading.Thread(target=lambda: box.update(r=receive_file(b, args.out, bus=bus, linger=4)), daemon=True)
+    data, _ = _data(args, default=text)
+    box, done = {}, threading.Event()
+    th = threading.Thread(target=lambda: box.update(r=receive_file(b, args.out, bus=bus, stop_event=done)),
+                          daemon=True)
     th.start()
 
     def weather():
@@ -128,6 +132,7 @@ def speed(args, make_bus, make_dash):
         b.measure_noise_floor(0.5)
         st = send_file(a, 2, data, "speed_demo.txt", "sr", 4, None, bus, rate="auto")
         print(f"speeds used (MCS: frames): {st['frames_per_mcs']}   history: {st.get('rate_history')}")
+        done.set()
         th.join(60)
         _keep_open(args, dash)
     finally:
@@ -158,9 +163,11 @@ def security(args, make_bus, make_dash):
         e.measure_noise_floor(0.5)
 
         _story(bus, "1. Alice sends the file WITHOUT encryption")
-        th = threading.Thread(target=lambda: receive_file(b, args.out, bus=bus, linger=3), daemon=True)
+        done = threading.Event()
+        th = threading.Thread(target=lambda: receive_file(b, args.out, bus=bus, stop_event=done), daemon=True)
         th.start()
         send_file(a, 2, SECRET, "answer_key.txt", "sr", 4, None, bus, rate=rate)
+        done.set()
         th.join(60)
 
         _story(bus, "2. Alice sends the same file ENCRYPTED (Bob has the key, Eve does not)")
@@ -223,13 +230,13 @@ def relay(args, make_bus, make_dash):
     ra, rr, rb = Router(a, bus).start(), Router(r, bus).start(), Router(b, bus).start()
     la, lb = NetLink(a, ra), NetLink(b, rb)
     dash = make_dash(bus, r, "Simulated room: R relays between A and B (wall in between)", None)
-    box = {}
+    box, done = {}, threading.Event()
     try:
         if dash:
             time.sleep(args.wait_dashboard)
         _story(bus, "routers discover neighbours and exchange distance vectors")
-        th = threading.Thread(target=lambda: box.update(res=receive_file(lb, args.out, bus=bus, linger=6, key=args.key)),
-                              daemon=True)
+        th = threading.Thread(target=lambda: box.update(res=receive_file(lb, args.out, bus=bus, key=args.key,
+                                                                         stop_event=done)), daemon=True)
         th.start()
         ra.wait_route(2, 120)
         _story(bus, f"A has a route to B: next hop {ra.dv.lookup(2)}, cost {ra.dv.cost(2)} hops")
@@ -238,6 +245,7 @@ def relay(args, make_bus, make_dash):
         print("path: 1 -> " + " -> ".join("*" if h is None else str(h) for h in path))
         _story(bus, "A sends a file to B through R")
         send_file(la, 2, data, name, args.arq, args.window, args.chunk, bus, rate=_rate(args), key=args.key)
+        done.set()
         th.join(90)
         print("relay statistics:", rr.stats)
         _keep_open(args, dash)

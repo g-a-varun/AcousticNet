@@ -24,7 +24,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from acousticnet.phy import Modem          # noqa: E402
 
-FRAME_S = Modem().frame_duration(4)       # 4-byte MAC frame at 100 baud (~1.29 s)
+FRAME_S = Modem().frame_duration(4)       # 4-byte MAC frame at 100 baud (~1.37 s)
 
 
 def _collisions(emis):

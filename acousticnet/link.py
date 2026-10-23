@@ -13,8 +13,8 @@ use without caring about sound at all:
     node.channel_busy()              carrier sense: is anyone talking right now?
     node.now() / node.sleep(dt)      clock based on audio samples
 
-experiments/virtual_link.py offers the very same API without any audio, so the ARQ code
-can be tested thousands of times faster.  That is the "VirtualChannel" idea.
+virtual.py (VirtualLink) offers the very same API without any audio, so the ARQ code
+can be tested thousands of times faster.
 """
 import threading
 import time

@@ -4,3 +4,4 @@ __pycache__/
 received/
 sniffed/
 acousticnet_calibration.json
+.venv/

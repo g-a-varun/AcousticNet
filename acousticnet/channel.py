@@ -7,7 +7,7 @@ Used by the simulator and the experiments, never by the real-hardware path.
     apply_ir ............. convolve a signal with that echo
     room_channel ......... all of the above + latency + attenuation, in one call
 
-In-band SNR = signal power / noise power measured only inside 700-3500 Hz,
+In-band SNR = signal power / noise power measured only inside 700-4000 Hz,
 the band our receiver actually listens to.  That makes the number meaningful:
 noise outside the band is filtered away anyway.
 """

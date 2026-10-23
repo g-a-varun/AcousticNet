@@ -373,9 +373,15 @@ def cmd_mac_sink(args):
 
 def cmd_sim_demo(args):
     """scripted demos in a simulated room (see scenarios.py)"""
+    from .arq import LinkFailed
     from .scenarios import SCENARIOS
-    return SCENARIOS[args.scenario](args, lambda: _bus(args),
-                                    lambda bus, node, role, actions: _dashboard(args, bus, node, role, actions=actions))
+    try:
+        return SCENARIOS[args.scenario](args, lambda: _bus(args),
+                                        lambda bus, node, role, actions: _dashboard(args, bus, node, role,
+                                                                                    actions=actions))
+    except LinkFailed as e:
+        print("Transfer failed:", e)
+        return 3
 
 
 def cmd_sim_mac(args):

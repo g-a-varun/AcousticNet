@@ -1,7 +1,7 @@
 """
 receiver.py - listens to the never-ending microphone stream and pulls frames out of it.
 
-RingBuffer      : remembers the last ~60 s of microphone audio.  Every sample has an
+RingBuffer      : remembers the last ~90 s of microphone audio.  Every sample has an
                   ABSOLUTE index (sample number since start), which doubles as our clock.
 StreamReceiver  : walks forward through the ring buffer:
                      SEARCH  -> look for the chirp (normalised matched filter)

@@ -357,6 +357,8 @@ This section is useful in the viva. It shows the engineering, not just the resul
 15. **A stale ACK ended the replay attack "successfully".** Eve's laptop had queued Alice's old ACKs; her replay tool read one and believed Bob had accepted. **Fix:** a transfer throws away stale ACKs from its peer before it starts.
 16. **A receiver could get stuck on a stray sender** whose transfer it never saw start. **Fix:** without a META from the current sender, a new sender takes over.
 17. **The routing simulation hid count-to-infinity.** Processing adverts in a fixed order happened to break the loop every time. In the real world nobody controls who hears what first, so the simulation now uses a random order, and the triangle counts to infinity in 40 of 50 runs.
+18. **A clap at the very end crashed the backup demo.** In `sim-demo`, the simulated receiver lingered only 4 s. If the noise burst (or the dashboard's noise button) destroyed the *last* ACK, the sender's "what do you have?" poll arrived after the receiver had stopped listening, so the sender polled into silence 25 times and the demo ended in a Python traceback. **Fix:** the demo receivers now linger the full 20 s (like the real `recv`) and are told to stop as soon as the sender has its final ACK; a failed simulated transfer now prints "Transfer failed: …" instead of a traceback.
+19. **The BER receiver gave up between two slow frames.** `ber-rx` stopped after 15 s without a new frame, but with `--baud 25 --fec` one frame alone lasts 24 s (and 14 s at `--baud 25`, right at the limit), so only the first frame was counted. **Fix:** the waiting time now grows with the frame length.
 
 ---
 
@@ -412,7 +414,7 @@ Out of **360,000** deliberately corrupted messages, **CRC-16 missed 2**. It miss
 |---|---|---|---|---|
 | −3 dB | 16 | **34** | 0 (fails) | 29 |
 | 0 dB | 56 | 152 | 32 | **153** |
-| 2 dB | 58 | 161 | 142 | **168** |
+| 2 dB | 58 | 160 | 142 | **168** |
 | 4 dB | 61 | 175 | 236 | **249** |
 | ≥ 6 dB | 61 | 175 | **290** | **290** |
 
@@ -697,7 +699,7 @@ python -m acousticnet sniff
 ```
 1. **Plain file.** On B: Ctrl+C, then `python -m acousticnet recv`. On A: `python -m acousticnet send demo_files/exam_answers.txt`. Eve's dashboard shows **"Eve STOLE exam_answers.txt"** with the full text. *"Sound is broadcast: everyone hears everything."*
 2. **Encrypted file.** On B: Ctrl+C, then `python -m acousticnet recv --key vit-cn-lab`. On A: `python -m acousticnet send demo_files/exam_answers.txt --key vit-cn-lab`. B shows the file and *"Encrypted + authenticated"*; Eve sees only **random bytes**. C's terminal prints the recording it made: `SNIFF_CAPTURE ... path=sniffed/capture_1_to_2_<session>.json`.
-3. **Replay attack.** On C: Ctrl+C, then `python -m acousticnet replay sniffed/capture_1_to_2_<session>.json` (Eve pretends to be laptop 1 and plays back exactly what she heard). B answers **"replay attack refused: this session was already received"**.
+3. **Replay attack.** Wait until at least 20 s after A printed "Done" (B keeps re-answering its sender for 20 s in case its last ACK was lost, so an earlier replay is simply re-ACKed). On C: Ctrl+C, then `python -m acousticnet replay sniffed/capture_1_to_2_<session>.json` (Eve pretends to be laptop 1 and plays back exactly what she heard). B answers **"replay attack refused: this session was already received"**.
 4. **Forgery.** On C: `python -m acousticnet send demo_files/forged_message.txt --addr 250 --key password123`. B answers **"authentication failed: wrong key, or the data was modified"**.
 
 > "Confidentiality, integrity and freshness: the three things TLS gives a web page, here on a channel the whole room can hear."
@@ -759,7 +761,7 @@ Add `--speed 2` to any `sim-demo` to run it twice as fast.
 | "the file is encrypted and the receiver has no key" | B runs `recv` without `--key` | restart B with the same `--key` as A |
 | "unencrypted file refused" | B runs with `--key`, A without | add `--key` on A, or restart B without it |
 | relay: "no route to node 2" for a long time | adverts collided, or R can't hear one side | wait 30–60 s; check `ping` A↔R and R↔B; move R |
-| `ModuleNotFoundError: acousticnet` | terminal not inside the project folder | `cd` into `AcousticNet` |
+| `ModuleNotFoundError: acousticnet` / `No module named acousticnet` | terminal not inside the project folder, or the package folder was renamed (Python imports are case-sensitive, even on Windows) | `cd` into the project folder; the package folder inside it must be named exactly `acousticnet` (lowercase) |
 
 ---
 
@@ -948,7 +950,7 @@ The figures are simulation using the real code. Section 9 produces the measured 
 * **Speed:** 800 bit/s at best. OFDM (many tones at once) would multiply it, at the cost of sensitivity to echo.
 * **Range:** about 0.3–3 m, depending on room and volume; the relay extends it hop by hop.
 * **Near-ultrasonic (18–20 kHz)** would be inaudible, but many laptop speakers and microphones are unreliable there.
-* **Security limits:** ACKs, headers and addresses are not authenticated, so Eve can disrupt (but not read or forge) a transfer; 48-bit tags; no forward secrecy (one passphrase protects every session); a passphrase is a shared secret that must be exchanged in person. Replay protection remembers completed sessions per receiver folder; a recording replayed *during* the few-second linger window right after a transfer is indistinguishable from a legitimate "my last ACK was lost, resend" and is re-ACKed (but never re-saved or decrypted twice) — a recording replayed *after* that window, as a real attacker would, is refused. A key exchange (Diffie–Hellman) would be the next step.
+* **Security limits:** ACKs, headers and addresses are not authenticated, so Eve can disrupt (but not read or forge) a transfer; 48-bit tags; no forward secrecy (one passphrase protects every session); a passphrase is a shared secret that must be exchanged in person. Replay protection remembers completed sessions per receiver folder; a recording replayed *during* the 20-second linger window right after a transfer is indistinguishable from a legitimate "my last ACK was lost, resend" and is re-ACKed (but never re-saved or decrypted twice) — a recording replayed *after* that window, as a real attacker would, is refused. A key exchange (Diffie–Hellman) would be the next step.
 * **Routing:** hop count only (it ignores link quality); count-to-infinity in loops of three or more (hold-down timers or link-state routing would fix it); hidden terminals still collide occasionally (RTS/CTS).
 * **Rate control:** the measured SNR saturates around 20 dB in echoey rooms, so the controller also watches losses; a statistical scheme like Minstrel could do better.
 
@@ -981,7 +983,7 @@ python -m acousticnet sim-demo --noise-at 10             # core demo in a simula
 python -m acousticnet sim-demo --scenario speed          # adaptive speed (simulated fan)
 python -m acousticnet sim-demo --scenario security       # Eve, encryption, replay, forgery
 python -m acousticnet sim-demo --scenario relay          # wall + relay + traceroute
-python -m acousticnet sim-mac                            # MAC experiment in a simulated room
+python -m acousticnet sim-mac                            # MAC experiment in a simulated room (adds rows to results/sim/mac_emulated.csv = Fig. 1 squares; use --csv OTHER.csv to keep them apart)
 python -m acousticnet simulate                           # regenerate results/sim/*.csv
 python -m acousticnet plot                               # regenerate results/figures/*.png
 python -m pytest -q                                      # run the 75 tests

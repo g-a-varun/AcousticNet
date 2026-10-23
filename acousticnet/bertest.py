@@ -46,6 +46,8 @@ def ber_receive(node, frames: int = 30, length: int = 32, distance: str = "", cs
                           bit_errors=got[f.seq]["errors"], received=len(got), of=frames)
 
     node.raw_listeners.append(on_raw)
+    # never give up between two frames: at --baud 25 or with --fec one frame alone lasts 14-24 s
+    idle_timeout = max(idle_timeout, 2 * (node.frame_time(length) + 1.0))
     last_n, last_change = 0, node.now()
     try:
         while True:
