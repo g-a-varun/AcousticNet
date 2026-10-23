@@ -453,14 +453,17 @@ def cmd_plot(args):
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     g = common.add_argument_group("audio / physical layer")
-    g.add_argument("--baud", type=int, default=100, choices=SUPPORTED_BAUDS, help="bits per second on air (default 100)")
+    g.add_argument("--baud", type=int, default=None, choices=SUPPORTED_BAUDS, help="bits per second on air (default 100)")
     g.add_argument("--fec", action="store_true", help="Hamming(7,4) forward error correction (both laptops must agree)")
-    g.add_argument("--volume", type=float, default=0.8, help="output volume 0..1 (default 0.8)")
+    g.add_argument("--volume", type=float, default=None, help="output volume 0..1 (default 0.8; 1.0 with --robust)")
     g.add_argument("--device", default=None, help="sound device index/name, or IN,OUT")
     g.add_argument("--fs", type=int, default=48000, help="sample rate (48000 or 44100)")
     g.add_argument("--blocksize", type=int, default=2048, help="audio block size in samples")
     g.add_argument("--latency", default="high", help="'high' (safe), 'low', or seconds")
     g.add_argument("--cal", default="acousticnet_calibration.json", help="calibration file")
+    g.add_argument("--robust", action="store_true",
+                   help="demo preset for real laptops: baud 100 + FEC, full volume, short robust frames and a "
+                        "fixed base speed. Use the SAME --robust on every laptop.")
     n = common.add_argument_group("network / security")
     n.add_argument("--routed", action="store_true", help="use multi-hop routing (needs a `relay` laptop in between)")
     n.add_argument("--ignore", default=None, help="pretend not to hear these addresses, e.g. 1 (emulates a wall)")
@@ -603,6 +606,20 @@ def main(argv=None):
     except Exception:
         pass
     args = build_parser().parse_args(argv)
+    robust = getattr(args, "robust", False)
+    # an explicit --baud / --volume always wins; otherwise the defaults (or the --robust preset) apply
+    if args.baud is None:
+        args.baud = 100
+    if args.volume is None:
+        args.volume = 1.0 if robust else 0.8
+    if robust:
+        # one flag for a real-laptop demo: short FEC frames at base speed, both laptops loud.
+        # Short frames matter most - a 12 s frame drifts out of sync and one cough kills it.
+        args.fec = True
+        if hasattr(args, "rate"):
+            args.rate = "base"
+        if hasattr(args, "chunk") and args.chunk is None:
+            args.chunk = 8
     try:
         return args.fn(args) or 0
     except RuntimeError as e:                          # friendly message for sound-card problems
