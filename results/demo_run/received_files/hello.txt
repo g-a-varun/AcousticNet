@@ -1,0 +1,3 @@
+Hello from AcousticNet!
+This text crossed the room as sound: 1400 Hz means 0, 2600 Hz means 1.
+CRC-16 catches damaged frames, and Selective Repeat resends only what was lost.

@@ -1,0 +1,121 @@
+Demo 3: security - eavesdropper, encryption, replay and wrong-key checks
+Command: python -m acousticnet sim-demo --scenario security
+
+
+=== 1. Alice sends the file WITHOUT encryption ===
+[        ] STORY     text=1. Alice sends the file WITHOUT encryption
+[    0.62s] TX  PING seq=200 -> 2     4 B  1.37s on air
+[    2.14s] RX  PING seq=200 <- 1     4 B  CRC OK   SNR 34.8 dB  quality 0.98
+[    2.20s] SNIFF_FRAME type=PING src=1 dst=2 seq=200 len=4 peek=prob
+[    2.14s] RX  PING seq=200 <- 1     4 B  CRC OK   SNR 38.5 dB  quality 0.98
+[    2.22s] TX  PONG seq=200 -> 1     5 B  1.45s on air
+[    3.79s] RX  PONG seq=200 <- 2     5 B  CRC OK   SNR 35.8 dB  quality 0.98
+[    3.84s] SNIFF_FRAME type=PONG src=2 dst=1 seq=200 len=5 peek=70 72 6f 62 9a
+[    3.82s] RX  PONG seq=200 <- 2     5 B  CRC OK   SNR 38.3 dB  quality 0.98
+[    3.88s] PROBE     snr_there=38.5 snr_back=38.3 snr=38.3
+[    3.88s] TRANSFER_START name=answer_key.txt size=164 chunks=3 mode=sr window=4 chunk=96 rate=auto mcs=4 encrypted=False session=None est_frame_s=1.87
+[    4.31s] ARQ_START mode=sr window=4 frames=3
+[    4.31s] TX  DATA seq=0   -> 2    30 B  1.21s on air
+[    5.53s] TX  DATA seq=1   -> 2    96 B  1.87s on air
+[    5.65s] RX  DATA seq=0   <- 1    30 B  CRC OK   SNR 38.5 dB  quality 0.68
+[    5.65s] RX  DATA seq=0   <- 1    30 B  CRC OK   SNR 36.0 dB  quality 0.68
+[    5.80s] TRANSFER_META name=answer_key.txt size=164 chunks=3 encrypted=False
+[    5.80s] SNIFF_FRAME type=DATA src=1 dst=2 seq=0 len=30 peek=41 4e 00 02 00 00 00 a4 39 f7 c4 60 30 03 b9 9e 61 6e 73 77 65 72 5f 6b 65 79 2e 74
+[    5.93s] SNIFF_CAPTURE src=1 dst=2 path=results/demo_run/received_files/eve/capture_1_to_2_d4559110.json
+[    7.40s] TX  DATA seq=2   -> 2    68 B  1.59s on air
+[    7.53s] RX  DATA seq=1   <- 1    96 B  CRC OK   SNR 37.7 dB  quality 0.63
+[    7.53s] RX  DATA seq=1   <- 1    96 B  CRC OK   SNR 36.9 dB  quality 0.64
+[    7.59s] SNIFF_FRAME type=DATA src=1 dst=2 seq=1 len=96 peek=Exam answer key - do not sha
+[    9.12s] RX  DATA seq=2   <- 1    68 B  CRC OK   SNR 35.6 dB  quality 0.62
+[    9.15s] SNIFF_FRAME type=DATA src=1 dst=2 seq=2 len=68 peek=one in the room can hear sou
+[    9.12s] RX  DATA seq=2   <- 1    68 B  CRC OK   SNR 36.8 dB  quality 0.62
+[    9.17s] TX  ACK  seq=3   -> 1     6 B  1.53s on air
+[    9.24s] SNIFF_FILE src=1 dst=2 name=answer_key.txt size=164 path=results/demo_run/received_files/eve/stolen_answer_key.txt preview=Exam answer key - do not share!
+Q1: CRC-16  Q2: Selective Repeat  Q3: 44.4 % for 3 stations.
+Anyone in the room can hear sound. Only encryption keeps this private.
+ hash_ok=True decrypted=False
+[    9.17s] FILE SAVED results/demo_run/received_files/answer_key.txt  (164 bytes)  SHA-256 MATCHES - every bit arrived intact
+[   10.86s] RX  ACK  seq=3   <- 2     6 B  CRC OK   SNR 38.2 dB  quality 0.99
+[   10.82s] RX  ACK  seq=3   <- 2     6 B  CRC OK   SNR 37.4 dB  quality 0.99
+[   10.88s] SNIFF_FRAME type=ACK src=2 dst=1 seq=3 len=6 peek=03 00 00 00 00 97
+[   11.22s] ACK       rbase=3 acked=3 base=3 of=3
+[   11.22s] ARQ_DONE  data_frames=3 retransmissions=0 timeouts=0 acks=1 status_polls=0 elapsed_s=7.32 payload_bytes=194 goodput_bps=212.1 efficiency=1.0 frames_per_mcs={'4': 3}
+[   11.24s] TRANSFER_DONE data_frames=3 retransmissions=0 timeouts=0 acks=1 status_polls=0 elapsed_s=7.32 payload_bytes=194 goodput_bps=212.1 efficiency=1.0 frames_per_mcs={'4': 3} file_goodput_bps=179.23 chunk=96 rate_history=[4, 4]
+
+=== 2. Alice sends the same file ENCRYPTED (Bob has the key, Eve does not) ===
+[        ] STORY     text=2. Alice sends the same file ENCRYPTED (Bob has the key, Eve does not)
+[   12.56s] ARQ_START mode=sr window=4 frames=4
+[   12.59s] TX  DATA seq=0   -> 2    45 B  1.83s on air
+[   14.42s] TX  DATA seq=1   -> 2    70 B  2.33s on air
+[   14.55s] RX  DATA seq=0   <- 1    45 B  CRC OK   SNR 34.1 dB  quality 0.84
+[   14.57s] SNIFF_FRAME type=DATA src=1 dst=2 seq=0 len=45 peek=41 45 c7 2d e8 dc 2d 93 91 42 c5 84 e1 ca 13 15 db e0 45 07 fb 1c ec a2 d1 ac 48 12
+[   14.55s] RX  DATA seq=0   <- 1    45 B  CRC OK   SNR 37.2 dB  quality 0.84
+[   14.68s] TRANSFER_META name=answer_key_v2.txt size=164 chunks=4 encrypted=True
+[   14.68s] SNIFF_CAPTURE src=1 dst=2 path=results/demo_run/received_files/eve/capture_1_to_2_c72de8dc.json
+[   14.70s] SNIFF_ENCRYPTED src=1 dst=2 session=c72de8dc peek=2d 93 91 42 c5 84 e1 ca 13 15 db e0 45 07 fb 1c ec a2 d1 ac
+[   16.77s] TX  DATA seq=2   -> 2    70 B  2.33s on air
+[   16.88s] RX  DATA seq=1   <- 1    70 B  CRC OK   SNR 34.8 dB  quality 0.85
+[   16.94s] SNIFF_FRAME type=DATA src=1 dst=2 seq=1 len=70 peek=a2 8d a8 d5 de c1 c9 cf b9 9e 09 86 0f 2a 1c 02 f5 f4 0d 15 75 47 c6 86 29 d9 8e aa
+[   16.88s] RX  DATA seq=1   <- 1    70 B  CRC OK   SNR 36.9 dB  quality 0.85
+[   19.11s] TX  DATA seq=3   -> 2    42 B  1.77s on air
+[   19.23s] RX  DATA seq=2   <- 1    70 B  CRC OK   SNR 35.1 dB  quality 0.84
+[   19.33s] SNIFF_FRAME type=DATA src=1 dst=2 seq=2 len=70 peek=f1 dd be 10 19 68 4a 0a ef a7 9c a5 be bc 65 b0 56 be 73 6a d8 e7 be 3c b4 bb 46 43
+[   19.23s] RX  DATA seq=2   <- 1    70 B  CRC OK   SNR 37.9 dB  quality 0.84
+[   21.02s] RX  DATA seq=3   <- 1    42 B  CRC OK   SNR 35.2 dB  quality 0.84
+[   21.08s] SNIFF_FRAME type=DATA src=1 dst=2 seq=3 len=42 peek=78 38 35 07 6f d1 a1 61 c7 5c 0e 4b c8 52 7c d7 9d 29 cc d9 ef 22 e0 81 0b 3d 4c e5
+[   21.02s] RX  DATA seq=3   <- 1    42 B  CRC OK   SNR 36.1 dB  quality 0.84
+[   21.10s] TX  ACK  seq=4   -> 1     6 B  1.53s on air
+[   21.10s] FILE SAVED results/demo_run/received_files/answer_key_v2.txt  (164 bytes)  SHA-256 MATCHES - every bit arrived intact
+[   22.78s] RX  ACK  seq=4   <- 2     6 B  CRC OK   SNR 38.3 dB  quality 0.98
+[   22.75s] RX  ACK  seq=4   <- 2     6 B  CRC OK   SNR 36.9 dB  quality 0.98
+[   22.83s] SNIFF_FRAME type=ACK src=2 dst=1 seq=4 len=6 peek=04 00 00 00 00 95
+[   23.17s] ACK       rbase=4 acked=4 base=4 of=4
+[   23.19s] ARQ_DONE  data_frames=4 retransmissions=0 timeouts=0 acks=1 status_polls=0 elapsed_s=11.01 payload_bytes=227 goodput_bps=164.97 efficiency=1.0 frames_per_mcs={'3': 4}
+
+=== 3. Eve plays back her RECORDING of that transfer, pretending to be Alice (replay attack) ===
+[        ] STORY     text=3. Eve plays back her RECORDING of that transfer, pretending to be Alice (replay attack)
+Eve recorded 4 of the 4 messages -> results/demo_run/received_files/eve/capture_1_to_2_c72de8dc.json
+[   27.65s] ARQ_START mode=sr window=4 frames=4
+[   27.67s] TX  DATA seq=0   -> 2    45 B  1.83s on air
+[   29.50s] TX  DATA seq=1   -> 2    70 B  2.33s on air
+[   29.64s] RX  DATA seq=0   <- 1    45 B  CRC OK   SNR 35.2 dB  quality 0.85
+[   29.76s] SECURITY_REJECT reason=replay attack refused: this session was already received (session c72de8dc)
+[   31.85s] TX  DATA seq=2   -> 2    70 B  2.33s on air
+[   31.98s] RX  DATA seq=1   <- 1    70 B  CRC OK   SNR 35.1 dB  quality 0.85
+[   34.20s] TX  DATA seq=3   -> 2    42 B  1.77s on air
+[   34.32s] RX  DATA seq=2   <- 1    70 B  CRC OK   SNR 34.8 dB  quality 0.84
+[   36.11s] RX  DATA seq=3   <- 1    42 B  CRC OK   SNR 35.0 dB  quality 0.84
+[   36.18s] TX  ALERT seq=0   -> 1     1 B  1.13s on air
+[   37.43s] RX  ALERT seq=0   <- 2     1 B  CRC OK   SNR 37.3 dB  quality 0.98
+[   37.46s] RX  ALERT seq=0   <- 2     1 B  CRC OK   SNR 38.6 dB  quality 0.98
+[   37.67s] SNIFF_FRAME type=ALERT src=2 dst=1 seq=0 len=1 peek=03
+[   37.70s] ALERT     reason=replay attack refused: this session was already received
+Bob refused: receiver refused the transfer: replay attack refused: this session was already received
+
+=== 4. Eve forges a file with a guessed key ===
+[        ] STORY     text=4. Eve forges a file with a guessed key
+[   41.71s] TX  PING seq=200 -> 2     4 B  1.37s on air
+[   43.22s] RX  PING seq=200 <- 250   4 B  CRC OK   SNR 35.3 dB  quality 0.98
+[   43.24s] TX  PONG seq=200 -> 250   5 B  1.45s on air
+[   43.25s] RX  PING seq=200 <- 250   4 B  CRC OK   SNR 36.0 dB  quality 0.98
+[   44.81s] RX  PONG seq=200 <- 2     5 B  CRC OK   SNR 33.9 dB  quality 0.98
+[   44.84s] SNIFF_FRAME type=PONG src=2 dst=250 seq=200 len=5 peek=70 72 6f 62 8d
+[   44.84s] RX  PONG seq=200 <- 2     5 B  CRC OK   SNR 35.4 dB  quality 0.98
+[   44.86s] PROBE     snr_there=35.2 snr_back=33.9 snr=33.9
+[   44.88s] TRANSFER_START name=answer_key.txt size=34 chunks=2 mode=sr window=4 chunk=96 rate=auto mcs=4 encrypted=True session=8f9481e1 est_frame_s=1.87
+[   45.29s] ARQ_START mode=sr window=4 frames=2
+[   45.31s] TX  DATA seq=0   -> 2    42 B  1.33s on air
+[   46.66s] TX  DATA seq=1   -> 2    40 B  1.31s on air
+[   46.78s] RX  DATA seq=0   <- 250  42 B  CRC OK   SNR 35.7 dB  quality 0.66
+[   46.82s] RX  DATA seq=0   <- 250  42 B  CRC OK   SNR 35.6 dB  quality 0.66
+[   46.93s] SECURITY_REJECT reason=authentication failed: wrong key, or the data was modified
+[   48.14s] RX  DATA seq=1   <- 250  40 B  CRC OK   SNR 35.1 dB  quality 0.66
+[   48.11s] RX  DATA seq=1   <- 250  40 B  CRC OK   SNR 34.8 dB  quality 0.66
+[   48.19s] TX  ALERT seq=0   -> 250   1 B  1.13s on air
+[   49.47s] RX  ALERT seq=0   <- 2     1 B  CRC OK   SNR 38.4 dB  quality 0.98
+[   49.44s] RX  ALERT seq=0   <- 2     1 B  CRC OK   SNR 36.2 dB  quality 0.98
+[   49.71s] SNIFF_FRAME type=ALERT src=2 dst=250 seq=0 len=1 peek=02
+[   49.71s] ALERT     reason=authentication failed: wrong key, or the data was modified
+[   49.73s] TRANSFER_FAILED reason=receiver refused the transfer: authentication failed: wrong key, or the data was modified
+Bob refused: receiver refused the transfer: authentication failed: wrong key, or the data was modified
+exit code: 0

@@ -1,0 +1,36 @@
+Demo 1: file transfer at base speed, with a simulated noise burst (clap) at 8 s
+Command: python -m acousticnet sim-demo --rate base --noise-at 8
+
+[    0.56s] TRANSFER_START name=hello.txt size=175 chunks=7 mode=sr window=4 chunk=32 rate=base mcs=1 encrypted=False session=None est_frame_s=3.61
+[    0.94s] ARQ_START mode=sr window=4 frames=7
+[    0.94s] TX  DATA seq=0   -> 2    25 B  3.05s on air
+[    4.01s] TX  DATA seq=1   -> 2    32 B  3.61s on air
+[    4.14s] RX  DATA seq=0   <- 1    25 B  CRC OK   SNR 39.5 dB  quality 0.98
+[    4.18s] TRANSFER_META name=hello.txt size=175 chunks=7 encrypted=False
+[    7.64s] TX  DATA seq=2   -> 2    32 B  3.61s on air
+[    7.75s] RX  DATA seq=1   <- 1    32 B  CRC OK   SNR 37.9 dB  quality 0.98
+*** simulated noise burst (someone claps) ***
+[    9.09s] RX  ???  chirp heard but header CRC-8 failed (collision or noise)
+[   11.26s] TX  DATA seq=3   -> 2    32 B  3.61s on air
+[   15.00s] RX  DATA seq=3   <- 1    32 B  CRC OK   SNR 38.7 dB  quality 0.98
+[   15.04s] TX  ACK  seq=2   -> 1     6 B  1.53s on air
+[   16.74s] RX  ACK  seq=2   <- 2     6 B  CRC OK   SNR 38.9 dB  quality 0.99
+[   17.11s] ACK       rbase=2 acked=3 base=2 of=7
+[   17.13s] TX  DATA seq=2   -> 2    32 B  3.61s on air  (retransmission)
+[   20.76s] TX  DATA seq=4   -> 2    32 B  3.61s on air
+[   20.87s] RX  DATA seq=2   <- 1    32 B  CRC OK   SNR 38.7 dB  quality 0.98
+[   24.38s] TX  DATA seq=5   -> 2    32 B  3.61s on air
+[   24.50s] RX  DATA seq=4   <- 1    32 B  CRC OK   SNR 38.9 dB  quality 0.98
+[   28.12s] RX  DATA seq=5   <- 1    32 B  CRC OK   SNR 38.6 dB  quality 0.98
+[   28.14s] TX  ACK  seq=6   -> 1     6 B  1.53s on air
+[   29.84s] RX  ACK  seq=6   <- 2     6 B  CRC OK   SNR 39.4 dB  quality 0.99
+[   30.21s] ACK       rbase=6 acked=3 base=6 of=7
+[   30.23s] TX  DATA seq=6   -> 2    15 B  2.25s on air
+[   32.61s] RX  DATA seq=6   <- 1    15 B  CRC OK   SNR 37.2 dB  quality 0.98
+[   32.62s] TX  ACK  seq=7   -> 1     6 B  1.53s on air
+[   32.62s] FILE SAVED results/demo_run/received_files/hello.txt  (175 bytes)  SHA-256 MATCHES - every bit arrived intact
+[   34.32s] RX  ACK  seq=7   <- 2     6 B  CRC OK   SNR 37.3 dB  quality 0.99
+[   34.71s] ACK       rbase=7 acked=1 base=7 of=7
+[   34.71s] ARQ_DONE  data_frames=8 retransmissions=1 timeouts=0 acks=3 status_polls=0 elapsed_s=34.13 payload_bytes=200 goodput_bps=46.88 efficiency=0.875 frames_per_mcs={'1': 8}
+[   34.71s] TRANSFER_DONE data_frames=8 retransmissions=1 timeouts=0 acks=3 status_polls=0 elapsed_s=34.13 payload_bytes=200 goodput_bps=46.88 efficiency=0.875 frames_per_mcs={'1': 8} file_goodput_bps=41.02 chunk=32
+exit code: 0
